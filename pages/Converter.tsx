@@ -4,7 +4,7 @@ import {
   hexToBinary, hexToRegisters, hexToSignedDecimal, 
   decode32Bit, ByteOrder, scaleValue, calculateModbusCRC, numToHex2
 } from '../utils/converterUtils';
-import { ArrowRight, Copy, Check, Hash, Cpu, AlertCircle, Layers, ArrowLeftRight, FileDigit, Scale, Calculator, ArrowDownUp, RefreshCw } from 'lucide-react';
+import { ArrowRight, Copy, Check, Hash, Cpu, AlertCircle, Layers, ArrowLeftRight, FileDigit, Scale, Calculator, ArrowDownUp, RefreshCw, Thermometer, Wind, Zap, Gauge, Ruler } from 'lucide-react';
 
 // --- SUB-COMPONENTS FOR TABS ---
 
@@ -278,26 +278,145 @@ const CRCCalc: React.FC = () => {
     );
 };
 
+// 5. UNIT CONVERTER
+const UnitConverter: React.FC = () => {
+    const [category, setCategory] = useState<'pressure' | 'temp' | 'flow' | 'power' | 'length'>('pressure');
+    const [fromUnit, setFromUnit] = useState<string>('');
+    const [toUnit, setToUnit] = useState<string>('');
+    const [value, setValue] = useState<string>('1');
+
+    const categories = {
+        pressure: { label: 'Давление', icon: <Gauge size={18}/>, units: ['bar', 'psi', 'Pa', 'kPa', 'MPa', 'atm', 'mmHg'] },
+        temp: { label: 'Температура', icon: <Thermometer size={18}/>, units: ['C', 'F', 'K'] },
+        flow: { label: 'Расход', icon: <Wind size={18}/>, units: ['m3/h', 'l/min', 'l/s', 'GPM', 'CFM'] },
+        power: { label: 'Мощность', icon: <Zap size={18}/>, units: ['kW', 'W', 'MW', 'hp', 'kcal/h'] },
+        length: { label: 'Длина', icon: <Ruler size={18}/>, units: ['mm', 'cm', 'm', 'km', 'inch', 'ft', 'yd'] }
+    };
+
+    // Conversion Logic (Base unit approach)
+    const convert = (val: number, from: string, to: string, cat: string): number => {
+        if (from === to) return val;
+        
+        // Temperature special case
+        if (cat === 'temp') {
+            let celsius = val;
+            if (from === 'F') celsius = (val - 32) * 5/9;
+            if (from === 'K') celsius = val - 273.15;
+            
+            if (to === 'C') return celsius;
+            if (to === 'F') return (celsius * 9/5) + 32;
+            if (to === 'K') return celsius + 273.15;
+            return val;
+        }
+
+        // Factors to convert TO base unit
+        const factors: Record<string, number> = {
+            // Pressure (Base: Bar)
+            'bar': 1, 'psi': 0.0689476, 'Pa': 0.00001, 'kPa': 0.01, 'MPa': 10, 'atm': 1.01325, 'mmHg': 0.00133322,
+            // Flow (Base: m3/h)
+            'm3/h': 1, 'l/min': 0.06, 'l/s': 3.6, 'GPM': 0.227125, 'CFM': 1.69901,
+            // Power (Base: kW)
+            'kW': 1, 'W': 0.001, 'MW': 1000, 'hp': 0.7457, 'kcal/h': 0.00116222,
+            // Length (Base: m)
+            'm': 1, 'mm': 0.001, 'cm': 0.01, 'km': 1000, 'inch': 0.0254, 'ft': 0.3048, 'yd': 0.9144
+        };
+
+        const valInBase = val * (factors[from] || 1);
+        return valInBase / (factors[to] || 1);
+    };
+
+    // Auto-select first units on category change
+    useMemo(() => {
+        setFromUnit(categories[category].units[0]);
+        setToUnit(categories[category].units[1]);
+    }, [category]);
+
+    const result = convert(parseFloat(value) || 0, fromUnit, toUnit, category);
+
+    return (
+        <div className="animate-fade-in space-y-6">
+            {/* Category Select */}
+            <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-gray-800">
+                {Object.entries(categories).map(([key, data]) => (
+                    <button
+                        key={key}
+                        onClick={() => setCategory(key as any)}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-lg whitespace-nowrap transition-colors ${
+                            category === key 
+                            ? 'bg-accent-600 text-white' 
+                            : 'bg-gray-900 text-gray-400 hover:bg-gray-800'
+                        }`}
+                    >
+                        {data.icon} {data.label}
+                    </button>
+                ))}
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center bg-gray-900 border border-gray-800 rounded-2xl p-8">
+                
+                {/* From */}
+                <div className="space-y-4">
+                    <label className="text-gray-500 text-xs font-bold uppercase">Из (From)</label>
+                    <div className="flex gap-2">
+                        <input 
+                            type="number" 
+                            value={value} 
+                            onChange={e => setValue(e.target.value)} 
+                            className="flex-1 bg-gray-950 border border-gray-700 rounded-xl px-4 py-3 text-white text-xl font-mono focus:border-accent-500 outline-none"
+                        />
+                        <select 
+                            value={fromUnit} 
+                            onChange={e => setFromUnit(e.target.value)}
+                            className="w-24 bg-gray-800 border border-gray-700 rounded-xl px-2 text-white text-sm outline-none cursor-pointer hover:bg-gray-700"
+                        >
+                            {categories[category].units.map(u => <option key={u} value={u}>{u}</option>)}
+                        </select>
+                    </div>
+                </div>
+
+                {/* To */}
+                <div className="space-y-4">
+                    <label className="text-gray-500 text-xs font-bold uppercase">В (To)</label>
+                    <div className="flex gap-2">
+                        <div className="flex-1 bg-gray-950/50 border border-gray-800 rounded-xl px-4 py-3 text-emerald-400 text-xl font-mono font-bold flex items-center overflow-hidden">
+                            {result.toLocaleString(undefined, { maximumFractionDigits: 6 })}
+                        </div>
+                        <select 
+                            value={toUnit} 
+                            onChange={e => setToUnit(e.target.value)}
+                            className="w-24 bg-gray-800 border border-gray-700 rounded-xl px-2 text-white text-sm outline-none cursor-pointer hover:bg-gray-700"
+                        >
+                            {categories[category].units.map(u => <option key={u} value={u}>{u}</option>)}
+                        </select>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    );
+};
+
 
 // --- MAIN PAGE COMPONENT ---
 
 export const Converter: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'BASE' | '32BIT' | 'SCALE' | 'CRC'>('BASE');
+  const [activeTab, setActiveTab] = useState<'BASE' | '32BIT' | 'SCALE' | 'CRC' | 'UNITS'>('BASE');
 
   const tabs = [
     { id: 'BASE', label: 'Hex/Dec', icon: <ArrowLeftRight size={18} /> },
     { id: '32BIT', label: '32-bit Decoder', icon: <Layers size={18} /> },
     { id: 'SCALE', label: 'Scale', icon: <Scale size={18} /> },
     { id: 'CRC', label: 'CRC Calc', icon: <Calculator size={18} /> },
+    { id: 'UNITS', label: 'Единицы', icon: <RefreshCw size={18} /> },
   ];
 
   return (
     <div className="space-y-8">
       <div className="text-center space-y-2 mb-8">
         <h1 className="text-4xl font-extrabold tracking-tight text-white">
-          Инструменты
+          Инженерный Конвертер
         </h1>
-        <p className="text-gray-400">Набор утилит для работы с данными</p>
+        <p className="text-gray-400">Набор утилит для работы с данными и единицами измерения</p>
       </div>
 
       {/* Tabs */}
@@ -324,6 +443,7 @@ export const Converter: React.FC = () => {
           {activeTab === '32BIT' && <Bit32Decoder />}
           {activeTab === 'SCALE' && <ScalingCalc />}
           {activeTab === 'CRC' && <CRCCalc />}
+          {activeTab === 'UNITS' && <UnitConverter />}
       </div>
     </div>
   );
