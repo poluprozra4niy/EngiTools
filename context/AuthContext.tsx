@@ -44,7 +44,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       email: sbUser.email || '',
       username: sbUser.user_metadata?.full_name || sbUser.email?.split('@')[0] || 'Engineer',
       avatar: sbUser.user_metadata?.avatar_url || '',
-      role: 'Engineer' // Default role
+      // READ ROLE FROM DB METADATA
+      role: (sbUser.user_metadata?.role as 'Engineer' | 'Admin') || 'Engineer' 
     };
   };
 
@@ -153,6 +154,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       options: {
         data: {
           full_name: username,
+          role: 'Engineer', // PERSIST DEFAULT ROLE TO DB
         },
       },
     });
@@ -183,7 +185,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const { error } = await supabase.auth.updateUser({
       data: {
         full_name: updates.username || user.username,
-        avatar_url: updates.avatar || user.avatar
+        avatar_url: updates.avatar || user.avatar,
+        // We don't update role here to prevent self-promotion hack, needs admin function
       }
     });
 
