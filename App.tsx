@@ -3,6 +3,7 @@ import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-d
 import { Navbar } from './components/Navbar';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import { DebugOverlay } from './components/DebugOverlay';
 
 // Pages
 import { LandingPage } from './pages/LandingPage';
@@ -34,7 +35,7 @@ import { RelayDatabase } from './pages/RelayDatabase';
 import { RzaNavigator } from './pages/RzaNavigator';
 import { RzaAiAssistant } from './pages/RzaAiAssistant';
 import { RzaGooseTiming } from './pages/RzaGooseTiming';
-import { RzaVirtualRelay } from './pages/RzaVirtualRelay'; // Imported
+import { RzaVirtualRelay } from './pages/RzaVirtualRelay'; 
 // Utils
 import { DwgViewer } from './pages/DwgViewer';
 
@@ -96,7 +97,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                 <p>© {new Date().getFullYear()} EngiTools Utils. Created for engineers.</p>
                 <div className="flex items-center gap-4 mt-4 md:mt-0">
                   <span className="flex items-center gap-2 hover:text-gray-300 transition-colors cursor-pointer">
-                    <Info size={16} /> v3.6.0 (CAD Update)
+                    <Info size={16} /> v3.6.1 (Auth Fix)
                   </span>
                 </div>
               </div>
@@ -104,8 +105,9 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         )}
       </div>
 
-      {/* Global AI Chatbot (z-50 handles itself) */}
+      {/* Global Components */}
       {!isAuthPage && <AIChat />}
+      <DebugOverlay /> 
     </div>
   );
 };

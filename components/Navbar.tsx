@@ -5,7 +5,7 @@ import {
   Calculator, BookOpen, Hammer, TableProperties, Activity, 
   Search, FileJson, Stethoscope, Zap, FileText, Cable, Network, FileCode,
   User, LogIn, LogOut, Settings, ChevronDown, Map, ShieldAlert, ZapOff,
-  PenTool, CloudOff, Cloud
+  PenTool, AlertOctagon, Cloud
 } from 'lucide-react';
 
 export const Navbar: React.FC = () => {
@@ -59,8 +59,8 @@ export const Navbar: React.FC = () => {
               
               {/* Connection Status Indicator */}
               {connectionError ? (
-                <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-[10px] font-bold text-amber-500 ml-2 animate-pulse" title="Нет связи с базой данных. Данные сохраняются только в браузере.">
-                   <CloudOff size={12} /> DEMO MODE
+                <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-red-500/10 border border-red-500/20 text-[10px] font-bold text-red-500 ml-2 animate-pulse" title={connectionError}>
+                   <AlertOctagon size={12} /> DB ERROR
                 </div>
               ) : null}
             </div>
