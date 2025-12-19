@@ -24,10 +24,24 @@ export const Register: React.FC = () => {
     setIsLoading(true);
     
     try {
-      await register(username, email, password);
-      navigate('/');
+      const result = await register(username, email, password);
+      
+      // Проверяем, требуется ли подтверждение email
+      if (result?.user && !result?.session) {
+        // Требуется подтверждение email
+        setError('');
+        alert('Регистрация успешна! Пожалуйста, проверьте вашу почту и подтвердите email адрес перед входом.');
+        navigate('/login');
+      } else if (result?.session) {
+        // Пользователь сразу авторизован
+        navigate('/');
+      } else {
+        navigate('/login');
+      }
     } catch (err: any) {
-      setError(err.message || 'Ошибка регистрации');
+      console.error('Registration error:', err);
+      const errorMessage = err.message || 'Ошибка регистрации';
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }

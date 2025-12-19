@@ -15,7 +15,7 @@ interface AuthContextType {
   session: Session | null;
   loading: boolean;
   login: (email: string, pass: string) => Promise<void>;
-  register: (username: string, email: string, pass: string) => Promise<void>;
+  register: (username: string, email: string, pass: string) => Promise<any>;
   logout: () => Promise<void>;
   updateProfile: (updates: Partial<User>) => Promise<void>;
   changePassword: (oldPass: string, newPass: string) => Promise<void>;
@@ -116,7 +116,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const register = async (username: string, email: string, pass: string) => {
     if (!isSupabaseConfigured) throw new Error("База данных не подключена (Check .env)");
 
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password: pass,
       options: {
@@ -124,9 +124,28 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           full_name: username,
           role: 'Engineer',
         },
+        emailRedirectTo: window.location.origin + '/',
       },
     });
-    if (error) throw error;
+    
+    if (error) {
+      console.error('Registration error:', error);
+      throw error;
+    }
+    
+    // Если требуется подтверждение email, пользователь не будет сразу авторизован
+    // Но если email подтверждение отключено в настройках Supabase, сессия будет создана сразу
+    if (data.user && data.session) {
+      // Пользователь сразу авторизован (email подтверждение отключено)
+      setSession(data.session);
+      setUser(mapUser(data.user));
+    } else if (data.user && !data.session) {
+      // Требуется подтверждение email
+      // Пользователь будет авторизован после подтверждения
+      console.log('Registration successful, email confirmation required');
+    }
+    
+    return data;
   };
 
   const logout = async () => {
