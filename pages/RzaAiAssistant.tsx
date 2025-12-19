@@ -144,8 +144,9 @@ export const RzaAiAssistant: React.FC = () => {
                 });
             }
 
+            // FIX: Pass 'parts' directly to message. Do not wrap in { role: 'user', parts: ... }
             const result = await chat.sendMessageStream({ 
-                message: { role: 'user', parts: parts }
+                message: parts 
             });
 
             let fullResponse = "";
