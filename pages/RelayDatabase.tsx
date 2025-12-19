@@ -233,7 +233,7 @@ export const RelayDatabase: React.FC = () => {
                     id: (row.device_data.id || row.id).toString() // Ensure frontend ID is string
                 }));
                 
-                // Combine with default demo if needed, or just replace
+                // If cloud has data, show it. If empty, show demo.
                 setDevices(mappedDevices.length > 0 ? mappedDevices : INITIAL_DB);
                 if (mappedDevices.length > 0) setSelectedId(mappedDevices[0].id);
             }
@@ -279,6 +279,11 @@ export const RelayDatabase: React.FC = () => {
 
         try {
             if (isSupabaseConfigured) {
+                // Check if user is real (UUID check)
+                if (!user.id || user.id.startsWith('demo')) {
+                    throw new Error("Нельзя сохранять в облако в демо-режиме. Пожалуйста, войдите в аккаунт.");
+                }
+
                 // Prepare data for DB
                 const deviceData = { ...editForm };
                 delete deviceData.db_id; // Don't store db_id inside the JSON
@@ -321,9 +326,9 @@ export const RelayDatabase: React.FC = () => {
 
             setIsEditing(false);
             setEditForm(null);
-        } catch (err) {
+        } catch (err: any) {
             console.error("Save failed:", err);
-            alert("Ошибка при сохранении в облако.");
+            alert(`Ошибка при сохранении: ${err.message || err.error_description || 'Неизвестная ошибка'}`);
         } finally {
             setIsSaving(false);
         }
@@ -382,9 +387,9 @@ export const RelayDatabase: React.FC = () => {
             else setSelectedId('');
             
             setIsEditing(false);
-        } catch (err) {
+        } catch (err: any) {
             console.error("Delete error:", err);
-            alert("Ошибка удаления устройства.");
+            alert(`Ошибка удаления: ${err.message}`);
         } finally {
             setIsSaving(false);
             setIsDeleteModalOpen(false);
