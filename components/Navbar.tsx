@@ -5,11 +5,11 @@ import {
   Calculator, BookOpen, Hammer, TableProperties, Activity, 
   Search, FileJson, Stethoscope, Zap, FileText, Cable, Network, FileCode,
   User, LogIn, LogOut, Settings, ChevronDown, Map, ShieldAlert, ZapOff,
-  PenTool
+  PenTool, CloudOff, Cloud
 } from 'lucide-react';
 
 export const Navbar: React.FC = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, connectionError } = useAuth();
   const navigate = useNavigate();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
 
@@ -47,14 +47,23 @@ export const Navbar: React.FC = () => {
         
         {/* Brand - Links to Landing Page */}
         <div className="flex w-full md:w-auto justify-between items-center mb-2 md:mb-0">
-            <NavLink to="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-600 to-emerald-500 flex items-center justify-center text-white shadow-lg">
-                <Zap size={20} fill="currentColor" className="opacity-90" />
-              </div>
-              <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">
-                Engi<span className="text-emerald-500">Tools</span>
-              </span>
-            </NavLink>
+            <div className="flex items-center gap-3">
+              <NavLink to="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-600 to-emerald-500 flex items-center justify-center text-white shadow-lg">
+                  <Zap size={20} fill="currentColor" className="opacity-90" />
+                </div>
+                <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">
+                  Engi<span className="text-emerald-500">Tools</span>
+                </span>
+              </NavLink>
+              
+              {/* Connection Status Indicator */}
+              {connectionError ? (
+                <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-[10px] font-bold text-amber-500 ml-2 animate-pulse" title="Нет связи с базой данных. Данные сохраняются только в браузере.">
+                   <CloudOff size={12} /> DEMO MODE
+                </div>
+              ) : null}
+            </div>
         </div>
 
         {/* Navigation Groups - Only visible if logged in */}

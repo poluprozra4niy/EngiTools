@@ -40,6 +40,9 @@ export const isSupabaseConfigured = isValidUrl(supabaseUrl) && !!supabaseAnonKey
 
 if (!isSupabaseConfigured) {
   console.warn('Supabase URL/Key missing or invalid. App running in Offline Mode.');
+  console.log('Current URL:', supabaseUrl ? 'Set (Invalid)' : 'Missing');
+} else {
+  console.log('Supabase Configured:', supabaseUrl);
 }
 
 // Create client with fallback to avoid crash during initialization
