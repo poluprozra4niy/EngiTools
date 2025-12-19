@@ -5,11 +5,9 @@ let supabaseAnonKey = '';
 
 // 1. Try accessing via import.meta.env (Vite standard)
 try {
-  // Cast to any to avoid TS errors if types aren't set up
-  const meta = import.meta as any;
-  if (meta && meta.env) {
-    supabaseUrl = meta.env.VITE_SUPABASE_URL;
-    supabaseAnonKey = meta.env.VITE_SUPABASE_ANON_KEY;
+  if (import.meta.env) {
+    supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
+    supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
   }
 } catch (e) {
   console.debug('Error reading import.meta.env', e);
