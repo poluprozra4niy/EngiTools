@@ -7,9 +7,8 @@ export const DebugOverlay: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
 
   // Safely access env vars (Vite specific)
-  const meta = import.meta as any;
-  const viteUrl = meta.env?.VITE_SUPABASE_URL;
-  const viteKey = meta.env?.VITE_SUPABASE_ANON_KEY;
+  const viteUrl = import.meta.env?.VITE_SUPABASE_URL;
+  const viteKey = import.meta.env?.VITE_SUPABASE_ANON_KEY;
 
   // Fallback check (sometimes useful in specific containers)
   let processUrl = undefined;

@@ -6,6 +6,11 @@ let supabaseAnonKey = '';
 // 1. Try accessing via import.meta.env (Vite standard)
 try {
   if (import.meta.env) {
+    // Отладочное логирование
+    console.log('[DEBUG] import.meta.env keys:', Object.keys(import.meta.env));
+    console.log('[DEBUG] VITE_SUPABASE_URL:', import.meta.env.VITE_SUPABASE_URL);
+    console.log('[DEBUG] VITE_SUPABASE_ANON_KEY exists:', !!import.meta.env.VITE_SUPABASE_ANON_KEY);
+    
     supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
     supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
   }
