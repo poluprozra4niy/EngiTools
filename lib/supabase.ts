@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 let supabaseUrl = '';
 let supabaseAnonKey = '';
 
-// 1. Try accessing via import.meta.env (Vite)
+// 1. Try accessing via import.meta.env (Vite standard)
 try {
   // Cast to any to avoid TS errors if types aren't set up
   const meta = import.meta as any;
@@ -15,7 +15,7 @@ try {
   console.debug('Error reading import.meta.env', e);
 }
 
-// 2. Fallback to process.env (Node/Webpack) if values are missing
+// 2. Fallback to process.env (Node/Webpack/Some Containers)
 if (!supabaseUrl || !supabaseAnonKey) {
   try {
     if (typeof process !== 'undefined' && process.env) {
@@ -38,14 +38,20 @@ const isValidUrl = (url: string) => {
 
 export const isSupabaseConfigured = isValidUrl(supabaseUrl) && !!supabaseAnonKey;
 
+// Logging for Developer Console
 if (!isSupabaseConfigured) {
-  console.warn('Supabase URL/Key missing or invalid. App running in Offline Mode.');
-  console.log('Current URL:', supabaseUrl ? 'Set (Invalid)' : 'Missing');
+  console.warn('--- ENGITOOLS CONFIGURATION WARNING ---');
+  console.warn('Supabase URL or Key is missing.');
+  console.warn('1. Check if .env file exists in project root.');
+  console.warn('2. Check if variables start with VITE_ (e.g. VITE_SUPABASE_URL).');
+  console.warn('3. Restart the dev server.');
+  console.log('Current URL found:', supabaseUrl || '(Empty)');
 } else {
-  console.log('Supabase Configured:', supabaseUrl);
+  console.log('EngiTools: Supabase configured successfully.');
 }
 
 // Create client with fallback to avoid crash during initialization
+// If not configured, we use a dummy URL so the app can render the error UI instead of crashing white screen
 export const supabase = createClient(
   isValidUrl(supabaseUrl) ? supabaseUrl : 'https://placeholder.supabase.co', 
   supabaseAnonKey || 'placeholder',
