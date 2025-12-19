@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="ru" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>EngiTools</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              gray: {
+                850: '#1f2937',
+                900: '#111827',
+                950: '#0b0f19',
+              },
+              accent: {
+                500: '#6366f1', // Indigo 500
+                600: '#4f46e5', // Indigo 600
+              }
+            },
+            fontFamily: {
+              mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', "Liberation Mono", "Courier New", 'monospace'],
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+      body {
+        background-color: #0b0f19;
+        color: #f3f4f6;
+      }
+      /* Custom scrollbar for webkit */
+      ::-webkit-scrollbar {
+        width: 8px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #111827; 
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #374151; 
+        border-radius: 4px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #4b5563; 
+      }
+
+      /* PRINT STYLES */
+      @media print {
+        @page {
+          margin: 0;
+          size: A4;
+        }
+        body {
+          background-color: white !important;
+          color: black !important;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+        /* Hide UI elements */
+        nav, footer, .no-print, ::-webkit-scrollbar {
+          display: none !important;
+        }
+        /* Make the report container take full space */
+        #root {
+          display: block !important;
+          background: white !important;
+        }
+        main {
+          padding: 0 !important;
+          max-width: 100% !important;
+          margin: 0 !important;
+          background: white !important;
+        }
+        .print-area {
+          display: block !important;
+          width: 100% !important;
+          max-width: 100% !important;
+          margin: 0 !important;
+          padding: 15mm !important;
+          border: none !important;
+          box-shadow: none !important;
+          background: white !important;
+          color: black !important;
+          font-family: 'Times New Roman', serif;
+        }
+        /* Force all text inside print area to be black */
+        .print-area * {
+          color: black !important;
+          border-color: black !important;
+        }
+        /* Force page breaks */
+        .page-break {
+          page-break-before: always;
+        }
+      }
+      
+      /* Markdown Styles (Simple) */
+      .markdown-content h1 { font-size: 1.5em; font-weight: bold; margin-bottom: 0.5em; color: #fff; }
+      .markdown-content h2 { font-size: 1.3em; font-weight: bold; margin-top: 1em; margin-bottom: 0.5em; color: #a78bfa; border-bottom: 1px solid #374151; padding-bottom: 0.2em; }
+      .markdown-content h3 { font-size: 1.1em; font-weight: bold; margin-top: 1em; margin-bottom: 0.5em; color: #34d399; }
+      .markdown-content ul { list-style-type: disc; padding-left: 1.5em; margin-bottom: 1em; color: #d1d5db; }
+      .markdown-content li { margin-bottom: 0.25em; }
+      .markdown-content p { margin-bottom: 1em; line-height: 1.6; color: #d1d5db; }
+      .markdown-content strong { color: #fff; font-weight: bold; }
+    </style>
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@^19.2.3",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "react-router-dom": "https://esm.sh/react-router-dom@^7.11.0",
+    "lucide-react": "https://esm.sh/lucide-react@^0.562.0",
+    "exceljs": "https://esm.sh/exceljs@^4.4.0",
+    "@google/genai": "https://esm.sh/@google/genai@^1.34.0",
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@^2.89.0",
+    "vite": "https://esm.sh/vite@^7.3.0",
+    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2"
+  }
+}
+</script>
+</head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="./index.tsx"></script>
+  </body>
+</html>
