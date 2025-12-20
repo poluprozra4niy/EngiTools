@@ -38,9 +38,9 @@ export const AISettings: React.FC = () => {
         geminiApiKey: localConfig.geminiApiKey ? `${localConfig.geminiApiKey.substring(0, 8)}...` : 'empty',
         openaiApiKey: localConfig.openaiApiKey ? `${localConfig.openaiApiKey.substring(0, 8)}...` : 'empty',
       });
-      
+
       await updateConfig(localConfig);
-      
+
       setSaveMessage({ text: 'Настройки успешно сохранены! Перезагрузите страницу или попробуйте использовать AI снова.', type: 'success' });
       setTimeout(() => setSaveMessage(null), 3000);
     } catch (error: any) {
@@ -103,11 +103,10 @@ export const AISettings: React.FC = () => {
 
         {/* Save Message */}
         {saveMessage && (
-          <div className={`mb-6 p-4 rounded-xl border ${
-            saveMessage.type === 'success' 
-              ? 'bg-green-900/20 border-green-500/30 text-green-400' 
+          <div className={`mb-6 p-4 rounded-xl border ${saveMessage.type === 'success'
+              ? 'bg-green-900/20 border-green-500/30 text-green-400'
               : 'bg-red-900/20 border-red-500/30 text-red-400'
-          }`}>
+            }`}>
             <div className="flex items-center gap-2">
               {saveMessage.type === 'success' ? <CheckCircle size={18} /> : <AlertCircle size={18} />}
               <p>{saveMessage.text}</p>
@@ -262,9 +261,9 @@ export const AISettings: React.FC = () => {
             <div className="text-sm text-blue-300/90">
               <p className="font-bold mb-1">Безопасность</p>
               <p className="text-blue-300/70">
-                Все API ключи шифруются и хранятся локально в вашем браузере. 
-                При авторизации они также синхронизируются с вашим аккаунтом в зашифрованном виде.
-                Никто, кроме вас, не имеет доступа к вашим ключам.
+                Ваши API ключи надежно защищены. Мы используем AES шифрование на стороне клиента перед отправкой данных на сервер.
+                Ключи хранятся в базе данных Supabase исключительно в зашифрованном вид и расшифровываются только на вашем устройстве.
+                Мы гарантируем полную конфиденциальность и изоляцию ваших данных.
               </p>
             </div>
           </div>
