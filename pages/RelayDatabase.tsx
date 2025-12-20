@@ -982,7 +982,15 @@ export const RelayDatabase: React.FC = () => {
                             <button onClick={() => setAiModalOpen(false)} className="text-gray-500 hover:text-white"><X size={20} /></button>
                         </div>
                         <div className="border-2 border-dashed border-gray-700 rounded-xl p-8 flex flex-col items-center justify-center mb-6 relative hover:border-purple-500 hover:bg-gray-800/30 transition-all">
-                            <input type="file" accept=".pdf" onChange={e => e.target.files && setAiFile(e.target.files[0])} className="absolute inset-0 opacity-0 cursor-pointer" />
+                            <input type="file" accept=".pdf" onChange={e => {
+                                if (e.target.files?.[0]) {
+                                    if (e.target.files[0].size > 3 * 1024 * 1024) {
+                                        alert("Файл слишком большой. Максимум 3MB для облачной обработки.");
+                                        return;
+                                    }
+                                    setAiFile(e.target.files[0]);
+                                }
+                            }} className="absolute inset-0 opacity-0 cursor-pointer" />
                             {aiFile ? <div className="text-center"><FileText size={40} className="mx-auto text-purple-400 mb-2" /><p className="text-white font-bold">{aiFile.name}</p></div> : <div className="text-center"><Upload size={40} className="mx-auto text-gray-500 mb-2" /><p className="text-gray-400">Drag & Drop PDF Manual</p></div>}
                         </div>
                         <div className="flex justify-end gap-3">
