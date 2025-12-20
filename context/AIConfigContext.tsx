@@ -148,33 +148,34 @@ export const AIConfigProvider: React.FC<{ children: ReactNode }> = ({ children }
 
         // Если пользователь авторизован, сохраняем в Supabase асинхронно
         if (user) {
-          supabase
-            .from('user_ai_settings')
-            .upsert({
-              user_id: user.id,
-              gemini_api_key: newConfig.geminiApiKey,
-              openai_api_key: newConfig.openaiApiKey,
-              anthropic_api_key: newConfig.anthropicApiKey,
-              custom_api_key: newConfig.customApiKey,
-              custom_api_url: newConfig.customApiUrl,
-              selected_model: newConfig.selectedModel,
-              default_provider: newConfig.defaultProvider,
-              updated_at: new Date().toISOString(),
-            }, {
-              onConflict: 'user_id'
-            })
-            .then(({ error }) => {
+          (async () => {
+            try {
+              const { error } = await supabase
+                .from('user_ai_settings')
+                .upsert({
+                  user_id: user.id,
+                  gemini_api_key: newConfig.geminiApiKey,
+                  openai_api_key: newConfig.openaiApiKey,
+                  anthropic_api_key: newConfig.anthropicApiKey,
+                  custom_api_key: newConfig.customApiKey,
+                  custom_api_url: newConfig.customApiUrl,
+                  selected_model: newConfig.selectedModel,
+                  default_provider: newConfig.defaultProvider,
+                  updated_at: new Date().toISOString(),
+                }, {
+                  onConflict: 'user_id'
+                });
+
               if (error) {
                 console.error('[AIConfig] Failed to save AI config to database:', error);
               } else {
                 console.log('[AIConfig] Saved to database successfully');
               }
-              resolve();
-            })
-            .catch((error) => {
+            } catch (error) {
               console.error('[AIConfig] Error saving AI config:', error);
-              resolve(); // Разрешаем промис даже при ошибке
-            });
+            }
+            resolve();
+          })();
         } else {
           resolve(); // Если пользователь не авторизован, сразу разрешаем
         }

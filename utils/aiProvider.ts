@@ -6,7 +6,7 @@ export interface AIMessage {
 }
 
 export interface AIProvider {
-  sendMessage: (messages: AIMessage[], systemPrompt?: string) => Promise<AsyncIterable<string>>;
+  sendMessage: (messages: AIMessage[], systemPrompt?: string) => AsyncIterable<string>;
 }
 
 // Gemini Provider
@@ -220,7 +220,7 @@ export class AnthropicProvider implements AIProvider {
 
 // Factory function to create provider
 export function createAIProvider(
-  provider: 'gemini' | 'openai' | 'anthropic',
+  provider: 'gemini' | 'openai' | 'anthropic' | 'custom',
   apiKey: string,
   model: string
 ): AIProvider {
@@ -231,6 +231,8 @@ export function createAIProvider(
       return new OpenAIProvider(apiKey, model);
     case 'anthropic':
       return new AnthropicProvider(apiKey, model);
+    case 'custom':
+        throw new Error('Custom provider not implemented yet');
     default:
       throw new Error(`Unsupported provider: ${provider}`);
   }
