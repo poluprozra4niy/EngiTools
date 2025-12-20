@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { GoogleGenAI } from "@google/genai";
 import { Bot, User, Send, Paperclip, Loader2, ZapOff, Sparkles, X, FileText, Image as ImageIcon } from 'lucide-react';
+import { useAIConfig } from '../context/AIConfigContext';
 
 interface Message {
     id: string;
@@ -66,6 +67,7 @@ const MessageContent: React.FC<{ content: string }> = ({ content }) => {
 };
 
 export const RzaAiAssistant: React.FC = () => {
+    const { getApiKey, config, getCurrentModel, isConfigured } = useAIConfig();
     const [messages, setMessages] = useState<Message[]>([
         {
             id: 'init',
@@ -116,7 +118,18 @@ export const RzaAiAssistant: React.FC = () => {
         setIsLoading(true);
 
         try {
-            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+            const currentModel = getCurrentModel();
+            
+            if (!currentModel || !isConfigured) {
+                throw new Error('AI не настроен. Пожалуйста, настройте API ключи в настройках.');
+            }
+
+            const apiKey = getApiKey(currentModel.provider);
+            if (!apiKey || currentModel.provider !== 'gemini') {
+                throw new Error('Требуется Gemini API ключ для этого функционала.');
+            }
+
+            const ai = new GoogleGenAI({ apiKey });
             
             // Build history only from text parts for simplicity in this context, 
             // or we could include previous images if the API supports multi-turn with images fully.
@@ -129,7 +142,7 @@ export const RzaAiAssistant: React.FC = () => {
             }));
 
             const chat = ai.chats.create({
-                model: "gemini-3-flash-preview",
+                model: config.selectedModel,
                 config: { systemInstruction: SYSTEM_PROMPT },
                 history: history
             });

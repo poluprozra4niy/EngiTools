@@ -1,8 +1,8 @@
 
 import React, { useState, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Camera, User, Lock, Mail, Save, Loader2, LogOut, CheckCircle, Shield, AlertCircle } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { Camera, User, Lock, Mail, Save, Loader2, LogOut, CheckCircle, Shield, AlertCircle, Brain, Settings } from 'lucide-react';
+import { useNavigate, Link } from 'react-router-dom';
 
 export const Profile: React.FC = () => {
   const { user, updateProfile, changePassword, logout } = useAuth();
@@ -119,6 +119,13 @@ export const Profile: React.FC = () => {
                         {user.role}
                     </div>
 
+                    <Link
+                        to="/ai-settings"
+                        className="w-full flex items-center justify-center gap-2 bg-purple-600/20 hover:bg-purple-600/30 text-purple-400 px-4 py-2 rounded-lg transition-colors text-sm font-medium border border-purple-500/30 mb-3"
+                    >
+                        <Brain size={16} />
+                        Настройки AI
+                    </Link>
                     <button 
                         onClick={() => {
                             logout();

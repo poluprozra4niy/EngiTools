@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { FileCode, Upload, FileSearch, Check, AlertTriangle, Layers, Brain, Sparkles, Loader2, Info } from 'lucide-react';
 import { GoogleGenAI } from "@google/genai";
+import { useAIConfig } from '../context/AIConfigContext';
 
 interface ParsedGSD {
     vendor: string;
@@ -95,12 +96,12 @@ const SimpleMarkdown: React.FC<{ content: string }> = ({ content }) => {
 
     lines.forEach((line, index) => {
         const trimmed = line.trim();
-        
+
         if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
             listBuffer.push(<li key={`li-${index}`}>{parseInline(trimmed.substring(2))}</li>);
         } else {
             flushList(index);
-            
+
             if (trimmed.startsWith('### ')) {
                 elements.push(<h3 key={index} className="text-lg font-bold text-emerald-400 mt-6 mb-2">{parseInline(trimmed.substring(4))}</h3>);
             } else if (trimmed.startsWith('## ')) {
@@ -108,7 +109,7 @@ const SimpleMarkdown: React.FC<{ content: string }> = ({ content }) => {
             } else if (trimmed.startsWith('# ')) {
                 elements.push(<h1 key={index} className="text-2xl font-bold text-white mt-4 mb-4">{parseInline(trimmed.substring(2))}</h1>);
             } else if (trimmed === '') {
-                 // skip empty lines or add spacing
+                // skip empty lines or add spacing
             } else {
                 elements.push(<p key={index} className="mb-2 text-gray-300 leading-relaxed">{parseInline(trimmed)}</p>);
             }
@@ -120,6 +121,7 @@ const SimpleMarkdown: React.FC<{ content: string }> = ({ content }) => {
 };
 
 export const GSDAnalyzer: React.FC = () => {
+    const { getApiKey, config, getCurrentModel, isConfigured } = useAIConfig();
     const [input, setInput] = useState('');
     const [activeTab, setActiveTab] = useState<'BASIC' | 'AI'>('BASIC');
     const [parsed, setParsed] = useState<ParsedGSD | null>(null);
@@ -148,22 +150,22 @@ export const GSDAnalyzer: React.FC = () => {
         result.software = find('Software_Release');
 
         if (!result.ident) {
-             const m = text.match(/Ident_Number\s*=\s*([0-9A-Fa-fx]+)/i);
-             if (m) result.ident = m[1];
+            const m = text.match(/Ident_Number\s*=\s*([0-9A-Fa-fx]+)/i);
+            if (m) result.ident = m[1];
         }
 
         const bauds = ['9.6', '19.2', '45.45', '93.75', '187.5', '500', '1.5', '3', '6', '12'];
         bauds.forEach(b => {
-             if (new RegExp(`${b.replace('.', '\\.')}_supp\\s*=\\s*1`, 'i').test(text) || 
-                 new RegExp(`${b}M_supp\\s*=\\s*1`, 'i').test(text)) {
-                 result.baudRates.push(b);
-             }
+            if (new RegExp(`${b.replace('.', '\\.')}_supp\\s*=\\s*1`, 'i').test(text) ||
+                new RegExp(`${b}M_supp\\s*=\\s*1`, 'i').test(text)) {
+                result.baudRates.push(b);
+            }
         });
 
         const moduleRegex = /Module\s*=\s*"([^"]+)"/gi;
         let m;
         while ((m = moduleRegex.exec(text)) !== null) {
-            if(result.modules.length < 50) result.modules.push(m[1]);
+            if (result.modules.length < 50) result.modules.push(m[1]);
         }
 
         result.isGSD = !!(result.vendor || result.model);
@@ -173,32 +175,60 @@ export const GSDAnalyzer: React.FC = () => {
     // AI Analysis Handler
     const handleAiAnalyze = async () => {
         if (!input.trim()) return;
-        
+
         setActiveTab('AI');
         setIsAnalyzing(true);
         setAiError(null);
         setAiAnalysis('');
 
         try {
-            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-            
-            const response = await ai.models.generateContent({
-                model: 'gemini-3-flash-preview',
-                contents: [
-                    {
-                        role: 'user',
-                        parts: [
-                            { text: EXPERT_SYSTEM_PROMPT },
-                            { text: `\n\n--- GSD CONTENT START ---\n${input}\n--- GSD CONTENT END ---` }
-                        ]
-                    }
-                ],
-                config: {
-                    temperature: 0.4, // Lower temperature for more analytical/factual output
-                }
-            });
+            const currentModel = getCurrentModel();
 
-            setAiAnalysis(response.text || "Не удалось получить ответ от модели.");
+            if (!currentModel || !isConfigured) {
+                throw new Error('AI не настроен. Пожалуйста, настройте API ключи в настройках.');
+            }
+
+            const apiKey = getApiKey(currentModel.provider);
+            if (!apiKey) {
+                throw new Error(`API ключ для ${currentModel.provider} не найден. Проверьте настройки.`);
+            }
+
+            console.log('[GSDAnalyzer] Using provider:', currentModel.provider);
+            console.log('[GSDAnalyzer] Model:', config.selectedModel);
+
+            // Use the unified provider factory
+            // We need to import createAIProvider at the top of the file, but for now I will assume it's available or should be imported.
+            // Wait, I need to check imports. The file has `import { GoogleGenAI }`. I should replace that import too.
+            // But since this is a partial replace, I'll use the provider logic here.
+
+            // I need to import { createAIProvider } from '../utils/aiProvider';
+            // Let's assume I'll fix imports in another step or rely on finding it. 
+            // Actually, I should do it properly. I will use fully qualified path or ensure import is there.
+            // Since I can't change imports in this block (it's lines 174-219), I will use the provider here if I can, or refactor to use the same logic as AIChat.
+
+            const { createAIProvider } = await import('../utils/aiProvider');
+
+            const provider = createAIProvider(
+                currentModel.provider,
+                apiKey,
+                config.selectedModel
+            );
+
+            const messages = [
+                {
+                    role: 'user' as const,
+                    content: `${EXPERT_SYSTEM_PROMPT}\n\n--- GSD CONTENT START ---\n${input}\n--- GSD CONTENT END ---`
+                }
+            ];
+
+            const resultStream = provider.sendMessage(messages);
+
+            let fullText = '';
+            for await (const chunk of resultStream) {
+                fullText += chunk;
+                setAiAnalysis(fullText);
+            }
+
         } catch (error: any) {
             console.error("AI Analysis Failed:", error);
             setAiError(error.message || "Ошибка соединения с AI сервисом. Проверьте подключение и API ключ.");
@@ -223,38 +253,38 @@ export const GSDAnalyzer: React.FC = () => {
 
     return (
         <div className="animate-fade-in max-w-7xl mx-auto pb-12 h-[calc(100vh-140px)] flex flex-col">
-             
-             {/* Header */}
-             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-                 <div>
+
+            {/* Header */}
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+                <div>
                     <h1 className="text-3xl font-extrabold text-white flex items-center gap-3">
-                        <FileCode className="text-purple-500"/> 
+                        <FileCode className="text-purple-500" />
                         GSD Viewer <span className="text-gray-600 text-lg font-normal">& AI Analyzer</span>
                     </h1>
                     <p className="text-gray-400 text-sm mt-1">
                         Загрузите .GSD файл для базового парсинга или используйте AI для экспертного анализа.
                     </p>
-                 </div>
-                 
-                 <div className="flex items-center gap-4">
-                     <label className="cursor-pointer bg-gray-800 hover:bg-gray-700 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors border border-gray-700">
-                         <Upload size={18} />
-                         Загрузить .GSD
-                         <input type="file" className="hidden" accept=".gsd,.gse,.gsg" onChange={handleUpload} />
-                     </label>
-                 </div>
+                </div>
+
+                <div className="flex items-center gap-4">
+                    <label className="cursor-pointer bg-gray-800 hover:bg-gray-700 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors border border-gray-700">
+                        <Upload size={18} />
+                        Загрузить .GSD
+                        <input type="file" className="hidden" accept=".gsd,.gse,.gsg" onChange={handleUpload} />
+                    </label>
+                </div>
             </div>
 
             <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-0">
-                
+
                 {/* Left: Input Editor (4 cols) */}
                 <div className="lg:col-span-4 flex flex-col gap-4">
-                     <div className="bg-gray-900 border border-gray-800 rounded-xl p-2 flex-1 flex flex-col shadow-lg">
+                    <div className="bg-gray-900 border border-gray-800 rounded-xl p-2 flex-1 flex flex-col shadow-lg">
                         <div className="flex justify-between items-center px-2 py-2 border-b border-gray-800 mb-2">
                             <span className="text-xs font-bold text-gray-500 uppercase">Исходный код</span>
                             <span className="text-xs text-gray-600">{input.length} chars</span>
                         </div>
-                        <textarea 
+                        <textarea
                             value={input}
                             onChange={(e) => {
                                 setInput(e.target.value);
@@ -263,64 +293,61 @@ export const GSDAnalyzer: React.FC = () => {
                             placeholder="Вставьте содержимое GSD файла сюда..."
                             className="flex-1 bg-gray-950 rounded-lg p-3 font-mono text-[10px] leading-relaxed text-gray-300 outline-none resize-none scrollbar-thin scrollbar-thumb-gray-800 border border-transparent focus:border-purple-500/30"
                         />
-                     </div>
-                     
-                     {/* Analyze Button */}
-                     <button 
+                    </div>
+
+                    {/* Analyze Button */}
+                    <button
                         onClick={handleAiAnalyze}
                         disabled={!input || isAnalyzing}
-                        className={`w-full py-4 rounded-xl font-bold text-white flex items-center justify-center gap-2 transition-all shadow-xl ${
-                            !input 
-                            ? 'bg-gray-800 text-gray-500 cursor-not-allowed' 
-                            : isAnalyzing 
-                                ? 'bg-purple-900/50 cursor-wait' 
+                        className={`w-full py-4 rounded-xl font-bold text-white flex items-center justify-center gap-2 transition-all shadow-xl ${!input
+                            ? 'bg-gray-800 text-gray-500 cursor-not-allowed'
+                            : isAnalyzing
+                                ? 'bg-purple-900/50 cursor-wait'
                                 : 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 shadow-purple-600/20'
-                        }`}
-                     >
+                            }`}
+                    >
                         {isAnalyzing ? (
                             <><Loader2 className="animate-spin" size={20} /> Анализ...</>
                         ) : (
                             <><Sparkles size={20} /> Экспертный Анализ AI</>
                         )}
-                     </button>
+                    </button>
                 </div>
 
                 {/* Right: Results (8 cols) */}
                 <div className="lg:col-span-8 flex flex-col bg-gray-900 border border-gray-800 rounded-xl shadow-xl overflow-hidden">
-                    
+
                     {/* Tabs */}
                     <div className="flex border-b border-gray-800 bg-gray-950/50">
-                        <button 
+                        <button
                             onClick={() => setActiveTab('BASIC')}
-                            className={`flex-1 py-3 text-sm font-bold flex items-center justify-center gap-2 border-b-2 transition-colors ${
-                                activeTab === 'BASIC' 
-                                ? 'border-purple-500 text-white bg-gray-900' 
+                            className={`flex-1 py-3 text-sm font-bold flex items-center justify-center gap-2 border-b-2 transition-colors ${activeTab === 'BASIC'
+                                ? 'border-purple-500 text-white bg-gray-900'
                                 : 'border-transparent text-gray-500 hover:text-gray-300 hover:bg-gray-900'
-                            }`}
+                                }`}
                         >
-                            <FileSearch size={16}/> Быстрый Обзор
+                            <FileSearch size={16} /> Быстрый Обзор
                         </button>
-                        <button 
+                        <button
                             onClick={() => setActiveTab('AI')}
-                            className={`flex-1 py-3 text-sm font-bold flex items-center justify-center gap-2 border-b-2 transition-colors ${
-                                activeTab === 'AI' 
-                                ? 'border-indigo-500 text-white bg-gray-900' 
+                            className={`flex-1 py-3 text-sm font-bold flex items-center justify-center gap-2 border-b-2 transition-colors ${activeTab === 'AI'
+                                ? 'border-indigo-500 text-white bg-gray-900'
                                 : 'border-transparent text-gray-500 hover:text-gray-300 hover:bg-gray-900'
-                            }`}
+                                }`}
                         >
-                            <Brain size={16}/> Экспертный Отчет
-                            {aiAnalysis && <Check size={14} className="text-green-500"/>}
+                            <Brain size={16} /> Экспертный Отчет
+                            {aiAnalysis && <Check size={14} className="text-green-500" />}
                         </button>
                     </div>
 
                     {/* Content */}
                     <div className="flex-1 overflow-y-auto p-6 scrollbar-thin scrollbar-thumb-gray-800">
-                        
+
                         {/* Tab: BASIC */}
                         {activeTab === 'BASIC' && (
                             !parsed || !parsed.isGSD ? (
                                 <div className="h-full flex flex-col items-center justify-center text-gray-600">
-                                    <FileSearch size={48} className="mb-4 opacity-50"/>
+                                    <FileSearch size={48} className="mb-4 opacity-50" />
                                     <p>Вставьте данные или загрузите файл</p>
                                 </div>
                             ) : (
@@ -348,7 +375,7 @@ export const GSDAnalyzer: React.FC = () => {
                                     </div>
 
                                     <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-6">
-                                        <h4 className="text-gray-400 font-bold mb-3 flex items-center gap-2"><Layers size={16}/> Supported Speeds</h4>
+                                        <h4 className="text-gray-400 font-bold mb-3 flex items-center gap-2"><Layers size={16} /> Supported Speeds</h4>
                                         <div className="flex flex-wrap gap-2">
                                             {parsed.baudRates.length > 0 ? parsed.baudRates.map(br => (
                                                 <span key={br} className="px-2 py-1 bg-purple-900/30 border border-purple-500/30 rounded text-xs text-purple-200">
@@ -359,11 +386,11 @@ export const GSDAnalyzer: React.FC = () => {
                                     </div>
 
                                     <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-6">
-                                        <h4 className="text-gray-400 font-bold mb-3 flex items-center gap-2"><Layers size={16}/> Modules (First 50)</h4>
+                                        <h4 className="text-gray-400 font-bold mb-3 flex items-center gap-2"><Layers size={16} /> Modules (First 50)</h4>
                                         <div className="space-y-1 max-h-[300px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-700">
                                             {parsed.modules.map((mod, i) => (
                                                 <div key={i} className="text-xs text-gray-300 border-b border-gray-800/50 py-1 flex items-center gap-2">
-                                                    <span className="text-gray-600 font-mono w-6 text-right">{i+1}</span>
+                                                    <span className="text-gray-600 font-mono w-6 text-right">{i + 1}</span>
                                                     {mod}
                                                 </div>
                                             ))}
@@ -391,7 +418,7 @@ export const GSDAnalyzer: React.FC = () => {
                                     </div>
                                 ) : aiError ? (
                                     <div className="flex-1 flex flex-col items-center justify-center text-center p-8">
-                                        <AlertTriangle size={48} className="text-red-500 mb-4"/>
+                                        <AlertTriangle size={48} className="text-red-500 mb-4" />
                                         <h3 className="text-xl font-bold text-white mb-2">Ошибка анализа</h3>
                                         <p className="text-red-400 max-w-md">{aiError}</p>
                                         <button onClick={handleAiAnalyze} className="mt-6 px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded text-white text-sm">Попробовать снова</button>
@@ -402,7 +429,7 @@ export const GSDAnalyzer: React.FC = () => {
                                     </div>
                                 ) : (
                                     <div className="flex-1 flex flex-col items-center justify-center text-gray-600">
-                                        <Sparkles size={48} className="mb-4 opacity-50"/>
+                                        <Sparkles size={48} className="mb-4 opacity-50" />
                                         <p className="text-lg font-medium">Готов к анализу</p>
                                         <p className="text-sm">Нажмите кнопку "Экспертный Анализ AI" слева</p>
                                     </div>

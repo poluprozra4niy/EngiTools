@@ -2,6 +2,7 @@ import React from 'react';
 import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Navbar } from './components/Navbar';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { AIConfigProvider } from './context/AIConfigContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { DebugOverlay } from './components/DebugOverlay';
 
@@ -43,6 +44,7 @@ import { DwgViewer } from './pages/DwgViewer';
 import { Login } from './pages/Login';
 import { Register } from './pages/Register';
 import { Profile } from './pages/Profile';
+import { AISettings } from './pages/AISettings';
 // AI Chat
 import { AIChat } from './components/AIChat';
 
@@ -121,6 +123,7 @@ const RootRedirect: React.FC = () => {
 const App: React.FC = () => {
   return (
     <AuthProvider>
+      <AIConfigProvider>
         <HashRouter>
           <Layout>
             <Routes>
@@ -133,6 +136,7 @@ const App: React.FC = () => {
 
               {/* Protected Routes */}
               <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+              <Route path="/ai-settings" element={<ProtectedRoute><AISettings /></ProtectedRoute>} />
 
               {/* Modbus Routes */}
               <Route path="/modbus/converter" element={<ProtectedRoute><Converter /></ProtectedRoute>} />
@@ -173,6 +177,7 @@ const App: React.FC = () => {
             </Routes>
           </Layout>
         </HashRouter>
+      </AIConfigProvider>
     </AuthProvider>
   );
 };

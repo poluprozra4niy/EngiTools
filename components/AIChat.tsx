@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { GoogleGenAI } from "@google/genai";
-import { MessageSquare, X, Send, Bot, User, Loader2, Sparkles, Terminal, Cpu, Lock } from 'lucide-react';
+import { MessageSquare, X, Send, Bot, User, Loader2, Sparkles, Terminal, Cpu, Lock, Settings } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useAIConfig } from '../context/AIConfigContext';
 import { useNavigate } from 'react-router-dom';
+import { createAIProvider } from '../utils/aiProvider';
 
 interface Message {
   id: string;
@@ -68,6 +69,7 @@ const ChatMessageContent: React.FC<{ content: string }> = ({ content }) => {
 
 export const AIChat: React.FC = () => {
   const { user } = useAuth();
+  const { getApiKey, config, getCurrentModel, isConfigured } = useAIConfig();
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState('');
@@ -83,6 +85,8 @@ export const AIChat: React.FC = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
+  const isSendingRef = useRef(false);
+
   // Auto-scroll
   useEffect(() => {
     if (messagesEndRef.current) {
@@ -92,46 +96,85 @@ export const AIChat: React.FC = () => {
 
   // Focus input on open
   useEffect(() => {
-      if (isOpen && inputRef.current && user) {
-          setTimeout(() => inputRef.current?.focus(), 100);
-      }
+    if (isOpen && inputRef.current && user) {
+        setTimeout(() => inputRef.current?.focus(), 100);
+    }
   }, [isOpen, user]);
 
   const handleSend = async () => {
-    if (!input.trim() || isLoading || !user) return;
+    if (!input.trim() || isLoading || !user || isSendingRef.current) return;
 
-    const userMsg: Message = {
-      id: Date.now().toString(),
-      role: 'user',
-      text: input.trim(),
-      timestamp: new Date()
-    };
-
-    setMessages(prev => [...prev, userMsg]);
-    setInput('');
-    setIsLoading(true);
-
+    isSendingRef.current = true;
+    const currentInput = input.trim();
+    
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const userMsg: Message = {
+        id: `${Date.now()}-user-${Math.random().toString(36).slice(2)}`,
+        role: 'user',
+        text: currentInput,
+        timestamp: new Date()
+      };
+
+      setMessages(prev => [...prev, userMsg]);
+      setInput('');
+      setIsLoading(true);
+
+      const currentModel = getCurrentModel();
+      console.log('[AIChat] Current model:', currentModel);
+      console.log('[AIChat] Config:', {
+        selectedModel: config.selectedModel,
+        isConfigured,
+        geminiApiKey: config.geminiApiKey ? `${config.geminiApiKey.substring(0, 8)}...` : 'empty'
+      });
       
-      // Prepare history for context
-      const history = messages.map(m => ({
-        role: m.role,
-        parts: [{ text: m.text }]
+      if (!currentModel || !isConfigured) {
+        throw new Error('AI не настроен. Пожалуйста, настройте API ключи в настройках.');
+      }
+
+      const apiKey = getApiKey(currentModel.provider);
+      if (!apiKey) {
+        throw new Error(`API ключ для ${currentModel.provider} не найден. Проверьте настройки.`);
+      }
+
+      console.log('[AIChat] Using provider:', currentModel.provider);
+      console.log('[AIChat] Using API key:', `${apiKey.substring(0, 8)}...`);
+      console.log('[AIChat] Using model:', config.selectedModel);
+      
+      // Создаем провайдер для выбранной модели
+      const provider = createAIProvider(
+        currentModel.provider,
+        apiKey,
+        config.selectedModel
+      );
+
+      // Подготавливаем историю сообщений
+      // Исключаем приветственное сообщение (id: 'welcome') и берем только реальную историю
+      const conversationMessages = messages.filter(m => m.id !== 'welcome');
+      
+      // Добавляем текущее сообщение, так как оно еще может не быть в state из-за замыкания,
+      // но для провайдера нам нужно отправить всю историю + новый промпт.
+      // В текущей реализации мы отправляем историю ИЗ STATE. 
+      // State messages (prev) обновили, но в этой замыкании 'messages' еще старый.
+      // Поэтому нужно собрать историю вручную: [...messages, userMsg].
+      
+      const sessionMessages = [...conversationMessages, userMsg];
+
+      const aiMessages = sessionMessages.map(m => ({
+        role: m.role === 'user' ? 'user' as const : 'assistant' as const,
+        content: m.text
       }));
 
-      const chat = ai.chats.create({
-        model: "gemini-3-flash-preview",
-        config: {
-            systemInstruction: SYSTEM_INSTRUCTION,
-        },
-        history: history,
+      console.log('[AIChat] Messages to send:', {
+        total: aiMessages.length,
+        lastMessageRole: aiMessages[aiMessages.length - 1]?.role,
+        lastMessagePreview: aiMessages[aiMessages.length - 1]?.content?.substring(0, 50),
       });
 
-      const result = await chat.sendMessageStream({ message: userMsg.text });
+      // Отправляем сообщение через провайдер
+      const result = provider.sendMessage(aiMessages, SYSTEM_INSTRUCTION);
       
       let fullResponse = "";
-      const botMsgId = (Date.now() + 1).toString();
+      const botMsgId = `${Date.now()}-bot-${Math.random().toString(36).slice(2)}`;
       
       // Initial bot message placeholder
       setMessages(prev => [...prev, {
@@ -142,9 +185,8 @@ export const AIChat: React.FC = () => {
       }]);
 
       for await (const chunk of result) {
-        const chunkText = chunk.text;
-        if (chunkText) {
-            fullResponse += chunkText;
+        if (chunk) {
+            fullResponse += chunk;
             setMessages(prev => prev.map(m => 
                 m.id === botMsgId ? { ...m, text: fullResponse } : m
             ));
@@ -154,13 +196,14 @@ export const AIChat: React.FC = () => {
     } catch (error) {
       console.error(error);
       setMessages(prev => [...prev, {
-        id: Date.now().toString(),
+        id: `${Date.now()}-error-${Math.random().toString(36).slice(2)}`,
         role: 'model',
         text: '⚠ Ошибка связи с сервером AI. Проверьте API Key или соединение.',
         timestamp: new Date()
       }]);
     } finally {
       setIsLoading(false);
+      isSendingRef.current = false;
     }
   };
 
@@ -296,8 +339,15 @@ export const AIChat: React.FC = () => {
                     <Send size={16} />
                   </button>
                 </div>
-                <div className="text-[10px] text-center text-gray-600 mt-2 flex items-center justify-center gap-1">
-                   <Terminal size={10}/> Powered by Gemini 3.0 • Industrial Model
+                <div className="text-[10px] text-center text-gray-600 mt-2 flex items-center justify-center gap-2">
+                   <Terminal size={10}/> {getCurrentModel()?.name || 'AI Model'}
+                   <button
+                     onClick={() => navigate('/ai-settings')}
+                     className="text-purple-400 hover:text-purple-300 transition-colors"
+                     title="Настройки AI"
+                   >
+                     <Settings size={10} />
+                   </button>
                 </div>
               </div>
             </>
