@@ -4,7 +4,7 @@ import { Navbar } from './components/Navbar';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { AIConfigProvider } from './context/AIConfigContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
-import { DebugOverlay } from './components/DebugOverlay';
+
 
 // Pages
 import { LandingPage } from './pages/LandingPage';
@@ -36,7 +36,7 @@ import { RelayDatabase } from './pages/RelayDatabase';
 import { RzaNavigator } from './pages/RzaNavigator';
 import { RzaAiAssistant } from './pages/RzaAiAssistant';
 import { RzaGooseTiming } from './pages/RzaGooseTiming';
-import { RzaVirtualRelay } from './pages/RzaVirtualRelay'; 
+import { RzaVirtualRelay } from './pages/RzaVirtualRelay';
 // Utils
 import { DwgViewer } from './pages/DwgViewer';
 
@@ -54,8 +54,8 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const location = useLocation();
   // Check if we are on wide pages
   const isWidePage = [
-    '/map', '/monitor', '/goose/analyzer', '/report', 
-    '/profibus/topology', '/profibus/gsd', '/profibus/io-mapper', 
+    '/map', '/monitor', '/goose/analyzer', '/report',
+    '/profibus/topology', '/profibus/gsd', '/profibus/io-mapper',
     '/rza/hub', '/rza/calculator', '/rza/comtrade', '/rza/database', '/rza/navigator', '/rza/ai-assistant', '/rza/goose-timing', '/rza/virtual-relay',
     '/dwg', '/'
   ].includes(location.pathname);
@@ -65,21 +65,21 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-950 text-gray-100 font-sans selection:bg-emerald-500 selection:text-white relative overflow-x-hidden">
-      
+
       {/* --- CINEMATIC BACKGROUND --- */}
       <div className="fixed inset-0 z-0 pointer-events-none">
         {/* Base Dark Gradient */}
         <div className="absolute inset-0 bg-gray-950"></div>
-        
+
         {/* Engineering Grid Pattern - Subtle & Technical */}
         <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)]"></div>
-        
+
         {/* Ambient Top Glow (Indigo/Purple hint) */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-[1000px] h-[400px] bg-indigo-600/10 blur-[100px] rounded-full opacity-50 mix-blend-screen"></div>
-        
+
         {/* Ambient Bottom Glow (Emerald/Teal hint) */}
         <div className="absolute bottom-0 right-0 w-[500px] h-[500px] bg-emerald-600/5 blur-[120px] rounded-full opacity-40 mix-blend-screen"></div>
-        
+
         {/* Noise Texture for material feel */}
         <div className="absolute inset-0 opacity-[0.015] bg-[url('https://grainy-gradients.vercel.app/noise.svg')] brightness-100 contrast-150"></div>
       </div>
@@ -87,37 +87,36 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
       {/* --- CONTENT LAYER (z-10 to stay above background) --- */}
       <div className="relative z-10 flex flex-col min-h-screen">
         <Navbar />
-        <main className={`flex-grow container mx-auto px-4 py-8 transition-all duration-300 ${
-          isWidePage ? 'max-w-[95%] xl:max-w-[1600px]' : 'max-w-6xl'
-        }`}>
+        <main className={`flex-grow container mx-auto px-4 py-8 transition-all duration-300 ${isWidePage ? 'max-w-[95%] xl:max-w-[1600px]' : 'max-w-6xl'
+          }`}>
           {children}
         </main>
-        
+
         {!isAuthPage && (
-            <footer className="border-t border-gray-800 py-6 mt-12 bg-gray-900/50 backdrop-blur-sm no-print">
-              <div className="container mx-auto px-4 flex flex-col md:flex-row justify-between items-center text-gray-500 text-sm">
-                <p>© {new Date().getFullYear()} EngiTools Utils. Created for engineers.</p>
-                <div className="flex items-center gap-4 mt-4 md:mt-0">
-                  <span className="flex items-center gap-2 hover:text-gray-300 transition-colors cursor-pointer">
-                    <Info size={16} /> v3.6.1 (Auth Fix)
-                  </span>
-                </div>
+          <footer className="border-t border-gray-800 py-6 mt-12 bg-gray-900/50 backdrop-blur-sm no-print">
+            <div className="container mx-auto px-4 flex flex-col md:flex-row justify-between items-center text-gray-500 text-sm">
+              <p>© {new Date().getFullYear()} EngiTools Utils. Created for engineers.</p>
+              <div className="flex items-center gap-4 mt-4 md:mt-0">
+                <span className="flex items-center gap-2 hover:text-gray-300 transition-colors cursor-pointer">
+                  <Info size={16} /> v3.6.1 (Auth Fix)
+                </span>
               </div>
-            </footer>
+            </div>
+          </footer>
         )}
       </div>
 
       {/* Global Components */}
       {!isAuthPage && <AIChat />}
-      <DebugOverlay /> 
+
     </div>
   );
 };
 
 // Component to handle the root path conditional logic
 const RootRedirect: React.FC = () => {
-    const { user } = useAuth();
-    return user ? <LandingPage /> : <Welcome />;
+  const { user } = useAuth();
+  return user ? <LandingPage /> : <Welcome />;
 };
 
 const App: React.FC = () => {
@@ -144,7 +143,7 @@ const App: React.FC = () => {
               <Route path="/map" element={<ProtectedRoute><ModbusMap /></ProtectedRoute>} />
               <Route path="/monitor" element={<ProtectedRoute><ModbusMonitor /></ProtectedRoute>} />
               <Route path="/modbus" element={<ProtectedRoute><ModbusInfo /></ProtectedRoute>} />
-              
+
               {/* GOOSE Routes */}
               <Route path="/goose/wiki" element={<ProtectedRoute><GooseWiki /></ProtectedRoute>} />
               <Route path="/goose/analyzer" element={<ProtectedRoute><GooseAnalyzer /></ProtectedRoute>} />
