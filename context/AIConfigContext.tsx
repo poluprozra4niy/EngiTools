@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useAuth } from './AuthContext';
 import { supabase } from '../lib/supabase';
-import { encryptData, decryptData } from '../utils/crypto';
+
 
 export interface AIModel {
   id: string;
@@ -80,30 +80,7 @@ export const AIConfigProvider: React.FC<{ children: ReactNode }> = ({ children }
     try {
       let loadedConfig = { ...defaultConfig };
 
-      // Сначала пробуем загрузить из localStorage (для быстрого доступа)
-      // Используем уникальный ключ для каждого пользователя чтобы избежать утечки данных
-      const storageKey = `ai_config_${user?.id || 'guest'}`;
-      const localConfig = localStorage.getItem(storageKey);
-
-      if (localConfig) {
-        try {
-          const parsed = JSON.parse(localConfig);
-
-          // Дешифруем ключи при чтении из локального хранилища
-          loadedConfig = {
-            ...defaultConfig,
-            ...parsed,
-            geminiApiKey: decryptData(parsed.geminiApiKey),
-            openaiApiKey: decryptData(parsed.openaiApiKey),
-            anthropicApiKey: decryptData(parsed.anthropicApiKey),
-            customApiKey: decryptData(parsed.customApiKey),
-          };
-        } catch (e) {
-          console.error('Failed to parse local AI config:', e);
-        }
-      }
-
-      // Если пользователь авторизован, пробуем загрузить из Supabase (приоритет над localStorage)
+      // Если пользователь авторизован, загружаем статус ключей из Supabase
       if (user) {
         try {
           const { data, error } = await supabase
@@ -113,38 +90,20 @@ export const AIConfigProvider: React.FC<{ children: ReactNode }> = ({ children }
             .single();
 
           if (!error && data) {
-            // Дешифруем ключи при чтении из базы данных
+            // МЫ НЕ ПОЛУЧАЕМ РЕАЛЬНЫЕ КЛЮЧИ! Они зашифрованы на сервере.
+            // Мы просто ставим заглушки, чтобы UI знал, что ключи есть.
             loadedConfig = {
-              geminiApiKey: decryptData(data.gemini_api_key || ''),
-              openaiApiKey: decryptData(data.openai_api_key || ''),
-              anthropicApiKey: decryptData(data.anthropic_api_key || ''),
-              customApiKey: decryptData(data.custom_api_key || ''),
+              geminiApiKey: data.gemini_api_key ? '********' : '',
+              openaiApiKey: data.openai_api_key ? '********' : '',
+              anthropicApiKey: data.anthropic_api_key ? '********' : '',
+              customApiKey: data.custom_api_key ? '********' : '',
               customApiUrl: data.custom_api_url || '',
               selectedModel: data.selected_model || defaultConfig.selectedModel,
               defaultProvider: data.default_provider || defaultConfig.defaultProvider,
             };
-
-            // Сохраняем в localStorage для быстрого доступа (в зашифрованном виде!)
-            const configToStore = {
-              ...loadedConfig,
-              geminiApiKey: encryptData(loadedConfig.geminiApiKey),
-              openaiApiKey: encryptData(loadedConfig.openaiApiKey),
-              anthropicApiKey: encryptData(loadedConfig.anthropicApiKey),
-              customApiKey: encryptData(loadedConfig.customApiKey),
-            };
-            localStorage.setItem(storageKey, JSON.stringify(configToStore));
           }
         } catch (dbError) {
-          console.warn('Failed to load from Supabase (table might not exist):', dbError);
-          // Продолжаем с localStorage конфигом
-        }
-      }
-
-      // Fallback: пробуем загрузить из переменных окружения
-      if (!loadedConfig.geminiApiKey) {
-        const envKey = import.meta.env.VITE_GEMINI_API_KEY || import.meta.env.GEMINI_API_KEY;
-        if (envKey) {
-          loadedConfig.geminiApiKey = envKey;
+          console.warn('Failed to load from Supabase:', dbError);
         }
       }
 
@@ -155,65 +114,46 @@ export const AIConfigProvider: React.FC<{ children: ReactNode }> = ({ children }
   };
 
   const updateConfig = async (updates: Partial<AIConfig>) => {
-    // Используем функциональное обновление для получения актуального состояния
-    return new Promise<void>((resolve) => {
+    return new Promise<void>((resolve, reject) => {
       setConfig(prevConfig => {
         const newConfig = { ...prevConfig, ...updates };
 
-        console.log('[AIConfig] Updating config:', {
-          updates,
-          newConfig: {
-            ...newConfig,
-            geminiApiKey: newConfig.geminiApiKey ? `${newConfig.geminiApiKey.substring(0, 8)}...` : 'empty',
-          }
-        });
-
-        // Сохраняем в localStorage синхронно с уникальным ключом
-        // ВАЖНО: Шифруем ключи перед сохранением
-        const configToStore = {
-          ...newConfig,
-          geminiApiKey: encryptData(newConfig.geminiApiKey),
-          openaiApiKey: encryptData(newConfig.openaiApiKey),
-          anthropicApiKey: encryptData(newConfig.anthropicApiKey),
-          customApiKey: encryptData(newConfig.customApiKey),
-        };
-
-        const storageKey = `ai_config_${user?.id || 'guest'}`;
-        localStorage.setItem(storageKey, JSON.stringify(configToStore));
-        console.log('[AIConfig] Saved to localStorage', storageKey);
-
-        // Если пользователь авторизован, сохраняем в Supabase асинхронно
+        // Если пользователь авторизован, отправляем ключи на СЕРВЕР для шифрования и сохранения
         if (user) {
-          (async () => {
-            try {
-              const { error } = await supabase
-                .from('user_ai_settings')
-                .upsert({
-                  user_id: user.id,
-                  gemini_api_key: encryptData(newConfig.geminiApiKey),
-                  openai_api_key: encryptData(newConfig.openaiApiKey),
-                  anthropic_api_key: encryptData(newConfig.anthropicApiKey),
-                  custom_api_key: encryptData(newConfig.customApiKey),
-                  custom_api_url: newConfig.customApiUrl,
-                  selected_model: newConfig.selectedModel,
-                  default_provider: newConfig.defaultProvider,
-                  updated_at: new Date().toISOString(),
-                }, {
-                  onConflict: 'user_id'
-                });
+          // Получаем текущую сессию для токена
+          supabase.auth.getSession().then(({ data: { session } }) => {
+            if (!session?.access_token) return;
 
-              if (error) {
-                console.error('[AIConfig] Failed to save AI config to database:', error);
-              } else {
-                console.log('[AIConfig] Saved to database successfully');
-              }
-            } catch (error) {
-              console.error('[AIConfig] Error saving AI config:', error);
-            }
-            resolve();
-          })();
+            fetch('/api/save-keys', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${session.access_token}`
+              },
+              body: JSON.stringify({
+                // Отправляем ключи, только если они не являются заглушками
+                geminiApiKey: newConfig.geminiApiKey !== '********' ? newConfig.geminiApiKey : undefined,
+                openaiApiKey: newConfig.openaiApiKey !== '********' ? newConfig.openaiApiKey : undefined,
+                anthropicApiKey: newConfig.anthropicApiKey !== '********' ? newConfig.anthropicApiKey : undefined,
+                customApiKey: newConfig.customApiKey !== '********' ? newConfig.customApiKey : undefined,
+                customApiUrl: newConfig.customApiUrl,
+                selectedModel: newConfig.selectedModel,
+                defaultProvider: newConfig.defaultProvider
+              })
+            })
+              .then(res => {
+                if (!res.ok) throw new Error('Failed to save settings to server');
+                console.log('[AIConfig] Saved to server successfully');
+                resolve();
+              })
+              .catch(err => {
+                console.error('[AIConfig] Server save error:', err);
+                // Не реджектим, чтобы не ломать UI, но логируем
+                resolve();
+              });
+          });
         } else {
-          resolve(); // Если пользователь не авторизован, сразу разрешаем
+          resolve();
         }
 
         return newConfig;
