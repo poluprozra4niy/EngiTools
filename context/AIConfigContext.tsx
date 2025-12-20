@@ -68,7 +68,11 @@ export const AIConfigProvider: React.FC<{ children: ReactNode }> = ({ children }
 
   // Загрузка конфигурации при монтировании
   useEffect(() => {
-    loadConfig();
+    if (!user) {
+      setConfig(defaultConfig);
+    } else {
+      loadConfig();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
