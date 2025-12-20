@@ -6,7 +6,7 @@ import {
     Camera, ChevronDown, ChevronUp, Image as ImageIcon, Link as LinkIcon, ExternalLink,
     Users, Phone, Mail, Cloud, CloudOff, RefreshCw, Globe, AlertTriangle
 } from 'lucide-react';
-import { GoogleGenAI } from "@google/genai";
+
 import { supabase, isSupabaseConfigured } from '../lib/supabase'; // Import Supabase & Check
 import { useAuth } from '../context/AuthContext';
 import { useAIConfig } from '../context/AIConfigContext';
@@ -425,124 +425,55 @@ export const RelayDatabase: React.FC = () => {
                 throw new Error('AI не настроен. Пожалуйста, настройте API ключи в настройках.');
             }
 
-            const apiKey = getApiKey(currentModel.provider);
-            if (!apiKey) {
-                throw new Error(`API ключ для ${currentModel.provider} не найден. Проверьте настройки.`);
-            }
+            // Client-side authentication check
+            const { data: { session } } = await supabase.auth.getSession();
+            const token = session?.access_token;
+            if (!token) throw new Error('Unauthorized: Please log in.');
 
+            // Read file to Base64
             const base64Data = await new Promise<string>((resolve) => {
                 const reader = new FileReader();
-                reader.onload = () => resolve((reader.result as string).split(',')[1]);
+                reader.onload = () => {
+                    const res = reader.result as string;
+                    // Remove data:mime/type;base64, prefix
+                    const base64 = res.split(',')[1];
+                    resolve(base64);
+                };
                 reader.readAsDataURL(aiFile);
             });
-            const dataUrl = await new Promise<string>((resolve) => {
-                const reader = new FileReader();
-                reader.onload = () => resolve(reader.result as string);
-                reader.readAsDataURL(aiFile);
+
+            const response = await fetch('/api/analyze', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    fileData: base64Data,
+                    mimeType: aiFile.type,
+                    prompt: AI_DEVICE_PROMPT,
+                    model: currentModel.id,
+                    provider: currentModel.provider
+                })
             });
 
-            let jsonStr = "";
-
-            // Validation: OpenAPI/Anthropic only support Images (not PDF)
-            const isPdf = aiFile.type === 'application/pdf';
-            if (currentModel.provider !== 'gemini' && isPdf) {
-                throw new Error(`Модель ${currentModel.name} не поддерживает PDF файлы. Пожалуйста, используйте Gemini или загрузите изображение (JPEG/PNG).`);
+            if (!response.ok) {
+                const errData = await response.json();
+                throw new Error(errData.error || 'Server Analysis Error');
             }
 
-            if (currentModel.provider === 'gemini') {
-                const ai = new GoogleGenAI({ apiKey });
-                const result = await ai.models.generateContent({
-                    model: config.selectedModel,
-                    contents: {
-                        parts: [
-                            { text: AI_DEVICE_PROMPT },
-                            { inlineData: { mimeType: aiFile.type, data: base64Data } }
-                        ]
-                    }
-                });
-                jsonStr = result.text?.replace(/```json/g, '').replace(/```/g, '').trim() || "";
-            } else if (currentModel.provider === 'openai') {
-                // OpenAI Vision Request
-                const response = await fetch('https://api.openai.com/v1/chat/completions', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${apiKey}`
-                    },
-                    body: JSON.stringify({
-                        model: config.selectedModel, // Ensure using gpt-4o or Vision model
-                        messages: [
-                            {
-                                role: "user",
-                                content: [
-                                    { type: "text", text: AI_DEVICE_PROMPT },
-                                    {
-                                        type: "image_url",
-                                        image_url: {
-                                            "url": dataUrl,
-                                        },
-                                    },
-                                ],
-                            },
-                        ],
-                        max_tokens: 2000,
-                    })
-                });
-
-                if (!response.ok) {
-                    const errData = await response.json();
-                    throw new Error(errData.error?.message || 'OpenAI API Error');
-                }
-                const data = await response.json();
-                jsonStr = data.choices[0]?.message?.content?.replace(/```json/g, '').replace(/```/g, '').trim() || "";
-
-            } else if (currentModel.provider === 'anthropic') {
-                // Anthropic Vision Request
-                const response = await fetch('https://api.anthropic.com/v1/messages', {
-                    method: 'POST',
-                    headers: {
-                        'x-api-key': apiKey,
-                        'anthropic-version': '2023-06-01',
-                        'content-type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        model: config.selectedModel,
-                        max_tokens: 2000,
-                        messages: [
-                            {
-                                role: "user",
-                                content: [
-                                    {
-                                        type: "image",
-                                        source: {
-                                            type: "base64",
-                                            media_type: aiFile.type,
-                                            data: base64Data,
-                                        },
-                                    },
-                                    {
-                                        type: "text",
-                                        text: AI_DEVICE_PROMPT
-                                    }
-                                ],
-                            }
-                        ]
-                    })
-                });
-
-                if (!response.ok) {
-                    const errData = await response.json();
-                    throw new Error(errData.error?.message || 'Anthropic API Error');
-                }
-                const data = await response.json();
-                // Anthropic might return plain text or blocks
-                jsonStr = data.content?.[0]?.text?.replace(/```json/g, '').replace(/```/g, '').trim() || "";
-            } else {
-                throw new Error("Этот AI провайдер пока не поддерживает данный метод.");
-            }
+            const dataRes = await response.json();
+            const jsonStr = dataRes.text?.replace(/```json/g, '').replace(/```/g, '').trim() || "";
 
             if (!jsonStr) throw new Error("Empty response from AI");
-            const data = JSON.parse(jsonStr);
+
+            let data;
+            try {
+                data = JSON.parse(jsonStr);
+            } catch (e) {
+                console.error("Failed to parse JSON", jsonStr);
+                throw new Error("AI вернул некорректный JSON. Попробуйте еще раз.");
+            }
 
             if (editForm) {
                 const mappedGuide: GuideStep[] = (data.guide || []).map((g: any, i: number) => ({
