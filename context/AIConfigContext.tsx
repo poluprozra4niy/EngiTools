@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useAuth } from './AuthContext';
 import { supabase } from '../lib/supabase';
+import { encryptData, decryptData } from '../utils/crypto';
 
 export interface AIModel {
   id: string;
@@ -76,11 +77,23 @@ export const AIConfigProvider: React.FC<{ children: ReactNode }> = ({ children }
       let loadedConfig = { ...defaultConfig };
 
       // Сначала пробуем загрузить из localStorage (для быстрого доступа)
-      const localConfig = localStorage.getItem('ai_config');
+      // Используем уникальный ключ для каждого пользователя чтобы избежать утечки данных
+      const storageKey = `ai_config_${user?.id || 'guest'}`;
+      const localConfig = localStorage.getItem(storageKey);
+
       if (localConfig) {
         try {
           const parsed = JSON.parse(localConfig);
-          loadedConfig = { ...defaultConfig, ...parsed };
+
+          // Дешифруем ключи при чтении из локального хранилища
+          loadedConfig = {
+            ...defaultConfig,
+            ...parsed,
+            geminiApiKey: decryptData(parsed.geminiApiKey),
+            openaiApiKey: decryptData(parsed.openaiApiKey),
+            anthropicApiKey: decryptData(parsed.anthropicApiKey),
+            customApiKey: decryptData(parsed.customApiKey),
+          };
         } catch (e) {
           console.error('Failed to parse local AI config:', e);
         }
@@ -96,17 +109,26 @@ export const AIConfigProvider: React.FC<{ children: ReactNode }> = ({ children }
             .single();
 
           if (!error && data) {
+            // Дешифруем ключи при чтении из базы данных
             loadedConfig = {
-              geminiApiKey: data.gemini_api_key || '',
-              openaiApiKey: data.openai_api_key || '',
-              anthropicApiKey: data.anthropic_api_key || '',
-              customApiKey: data.custom_api_key || '',
+              geminiApiKey: decryptData(data.gemini_api_key || ''),
+              openaiApiKey: decryptData(data.openai_api_key || ''),
+              anthropicApiKey: decryptData(data.anthropic_api_key || ''),
+              customApiKey: decryptData(data.custom_api_key || ''),
               customApiUrl: data.custom_api_url || '',
               selectedModel: data.selected_model || defaultConfig.selectedModel,
               defaultProvider: data.default_provider || defaultConfig.defaultProvider,
             };
-            // Сохраняем в localStorage для быстрого доступа
-            localStorage.setItem('ai_config', JSON.stringify(loadedConfig));
+
+            // Сохраняем в localStorage для быстрого доступа (в зашифрованном виде!)
+            const configToStore = {
+              ...loadedConfig,
+              geminiApiKey: encryptData(loadedConfig.geminiApiKey),
+              openaiApiKey: encryptData(loadedConfig.openaiApiKey),
+              anthropicApiKey: encryptData(loadedConfig.anthropicApiKey),
+              customApiKey: encryptData(loadedConfig.customApiKey),
+            };
+            localStorage.setItem(storageKey, JSON.stringify(configToStore));
           }
         } catch (dbError) {
           console.warn('Failed to load from Supabase (table might not exist):', dbError);
@@ -142,9 +164,19 @@ export const AIConfigProvider: React.FC<{ children: ReactNode }> = ({ children }
           }
         });
 
-        // Сохраняем в localStorage синхронно
-        localStorage.setItem('ai_config', JSON.stringify(newConfig));
-        console.log('[AIConfig] Saved to localStorage');
+        // Сохраняем в localStorage синхронно с уникальным ключом
+        // ВАЖНО: Шифруем ключи перед сохранением
+        const configToStore = {
+          ...newConfig,
+          geminiApiKey: encryptData(newConfig.geminiApiKey),
+          openaiApiKey: encryptData(newConfig.openaiApiKey),
+          anthropicApiKey: encryptData(newConfig.anthropicApiKey),
+          customApiKey: encryptData(newConfig.customApiKey),
+        };
+
+        const storageKey = `ai_config_${user?.id || 'guest'}`;
+        localStorage.setItem(storageKey, JSON.stringify(configToStore));
+        console.log('[AIConfig] Saved to localStorage', storageKey);
 
         // Если пользователь авторизован, сохраняем в Supabase асинхронно
         if (user) {
@@ -154,10 +186,10 @@ export const AIConfigProvider: React.FC<{ children: ReactNode }> = ({ children }
                 .from('user_ai_settings')
                 .upsert({
                   user_id: user.id,
-                  gemini_api_key: newConfig.geminiApiKey,
-                  openai_api_key: newConfig.openaiApiKey,
-                  anthropic_api_key: newConfig.anthropicApiKey,
-                  custom_api_key: newConfig.customApiKey,
+                  gemini_api_key: encryptData(newConfig.geminiApiKey),
+                  openai_api_key: encryptData(newConfig.openaiApiKey),
+                  anthropic_api_key: encryptData(newConfig.anthropicApiKey),
+                  custom_api_key: encryptData(newConfig.customApiKey),
                   custom_api_url: newConfig.customApiUrl,
                   selected_model: newConfig.selectedModel,
                   default_provider: newConfig.defaultProvider,
